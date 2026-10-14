@@ -83,7 +83,47 @@ async def validation_error_handler(_: Request, exc: RequestValidationError) -> J
     )
 
 
+def _is_database_connection_error(exc: BaseException) -> bool:
+    name = type(exc).__name__
+    if name in {
+        "ConnectionDoesNotExistError",
+        "InterfaceError",
+        "OperationalError",
+        "ConnectionResetError",
+        "ConnectionRefusedError",
+        "TimeoutError",
+    }:
+        return True
+    message = str(exc).lower()
+    return any(
+        marker in message
+        for marker in (
+            "connection was closed",
+            "connection refused",
+            "could not connect",
+            "server closed the connection",
+            "connection does not exist",
+        )
+    )
+
+
+def _exception_chain(exc: BaseException) -> list[BaseException]:
+    chain: list[BaseException] = []
+    current: BaseException | None = exc
+    while current is not None and current not in chain:
+        chain.append(current)
+        current = current.__cause__ or current.__context__
+    return chain
+
+
 async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    if any(_is_database_connection_error(item) for item in _exception_chain(exc)):
+        logger.error("База данных недоступна: %s %s (%s)", request.method, request.url.path, exc)
+        return _error_response(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "service_unavailable",
+            "База данных недоступна. Запустите PostgreSQL: docker compose up -d db",
+        )
     logger.exception("Необработанная ошибка: %s %s", request.method, request.url.path, exc_info=exc)
     return _error_response(
         status.HTTP_500_INTERNAL_SERVER_ERROR, "internal_error", "Внутренняя ошибка сервера, попробуйте позже"

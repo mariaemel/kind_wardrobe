@@ -95,6 +95,54 @@ class UserResponse(BaseModel):
     created_at: datetime
 
 
+class ProfileResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    email: str
+    name: str
+    city: str | None
+    about: str | None
+    avatar_url: str | None
+    items_saved: int = 0
+    created_at: datetime
+
+
+class ProfileUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=100)
+    city: str | None = None
+    about: str | None = Field(default=None, max_length=2000)
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("Имя не может быть пустым")
+        return normalized
+
+    @field_validator("city")
+    @classmethod
+    def normalize_city(cls, value: str | None) -> str | None:
+        from app.modules.accounts.cities import validate_city
+
+        return validate_city(value)
+
+    @field_validator("about")
+    @classmethod
+    def normalize_about(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip()
+        return normalized or None
+
+
+class CitiesResponse(BaseModel):
+    cities: list[str]
+
+
 class OrganizationBriefResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

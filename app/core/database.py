@@ -8,7 +8,10 @@ from app.core.config import settings
 
 
 def _engine_options() -> dict[str, Any]:
-    options: dict[str, Any] = {"pool_pre_ping": True}
+    options: dict[str, Any] = {
+        "pool_pre_ping": True,
+        "pool_recycle": 300,
+    }
     if settings.environment == "test":
         options["poolclass"] = NullPool
     return options
