@@ -34,6 +34,25 @@ async def get_current_user(
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
+async def get_optional_user(
+    session: SessionDep,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+) -> User | None:
+    if credentials is None:
+        return None
+    try:
+        user_id = decode_token(credentials.credentials, TokenType.ACCESS)
+    except InvalidTokenError:
+        return None
+    user = await session.get(User, user_id)
+    if user is None or not user.is_active:
+        return None
+    return user
+
+
+OptionalUser = Annotated[User | None, Depends(get_optional_user)]
+
+
 async def require_admin(user: CurrentUser) -> User:
     if not user.is_admin:
         raise PermissionDeniedError("Действие доступно только администратору")

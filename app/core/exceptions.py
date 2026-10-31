@@ -14,9 +14,15 @@ class AppError(Exception):
     code: str = "bad_request"
     message: str = "Некорректный запрос"
 
-    def __init__(self, message: str | None = None, code: str | None = None) -> None:
+    def __init__(
+        self,
+        message: str | None = None,
+        code: str | None = None,
+        details: list[dict[str, object]] | None = None,
+    ) -> None:
         self.message = message or self.message
         self.code = code or self.code
+        self.details = details
         super().__init__(self.message)
 
 
@@ -65,7 +71,7 @@ def _error_response(status_code: int, code: str, message: str, details: object |
 
 
 async def app_error_handler(_: Request, exc: AppError) -> JSONResponse:
-    return _error_response(exc.status_code, exc.code, exc.message)
+    return _error_response(exc.status_code, exc.code, exc.message, exc.details)
 
 
 async def http_exception_handler(_: Request, exc: StarletteHTTPException) -> JSONResponse:
@@ -73,9 +79,37 @@ async def http_exception_handler(_: Request, exc: StarletteHTTPException) -> JSO
     return _error_response(exc.status_code, "http_error", message)
 
 
+def _field_from_loc(loc: tuple[object, ...]) -> str:
+    skipped = {"body", "query", "path", "header", "cookie"}
+    parts = [str(part) for part in loc if part not in skipped]
+    return ".".join(parts) if parts else "request"
+
+
+def _validation_message(error: dict[str, object]) -> str:
+    message = str(error.get("msg", "Некорректное значение"))
+    if message.startswith("Value error, "):
+        return message.removeprefix("Value error, ")
+    translations = {
+        "Field required": "Обязательное поле",
+        "Input should be a valid string": "Ожидается строка",
+        "Input should be a valid boolean": "Ожидается логическое значение",
+        "Input should be a valid email address": "Некорректный email",
+        "String should have at least 8 characters": "Минимум 8 символов",
+        "String should have at most 72 characters": "Максимум 72 символа",
+        "String should have at least 1 character": "Поле не может быть пустым",
+    }
+    for english, russian in translations.items():
+        if message.startswith(english) or english in message:
+            return russian
+    return message
+
+
 async def validation_error_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
     details = [
-        {"field": ".".join(str(part) for part in error["loc"]), "message": error["msg"]}
+        {
+            "field": _field_from_loc(tuple(error["loc"])),
+            "message": _validation_message(error),
+        }
         for error in exc.errors()
     ]
     return _error_response(

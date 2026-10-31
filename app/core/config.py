@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     media_root: str = "media"
     media_url: str = "/media"
     max_upload_size_bytes: int = 5 * 1024 * 1024
+    max_images_per_item: int = 5
 
 
 @lru_cache

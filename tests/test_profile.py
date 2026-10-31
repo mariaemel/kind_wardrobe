@@ -113,6 +113,33 @@ async def test_upload_avatar_rejects_non_image(client: AsyncClient, make_user, a
 
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "invalid_image"
+    assert response.json()["error"]["message"]
+
+
+async def test_upload_avatar_rejects_oversized_file(client: AsyncClient, make_user, auth_header, monkeypatch) -> None:
+    user = await make_user()
+    from app.core import media as media_module
+    from app.core.config import Settings, get_settings
+
+    tiny = Settings(
+        jwt_secret_key=get_settings().jwt_secret_key,
+        media_root=get_settings().media_root,
+        media_url=get_settings().media_url,
+        max_upload_size_bytes=100,
+    )
+    monkeypatch.setattr(media_module, "get_settings", lambda: tiny)
+
+    png = _png_bytes()
+    assert len(png) > 100
+
+    response = await client.post(
+        "/api/v1/profile/me/avatar",
+        headers=auth_header(user),
+        files={"file": ("avatar.png", png, "image/png")},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_image"
 
 
 async def test_user_cannot_use_another_users_token_fields(

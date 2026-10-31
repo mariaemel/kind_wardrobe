@@ -31,7 +31,8 @@ from app.modules.organizations.permissions import OrgMemberRole
 async def _recreate_schema() -> None:
     engine = create_async_engine(settings.database_url, poolclass=NullPool)
     async with engine.begin() as connection:
-        await connection.run_sync(Base.metadata.drop_all)
+        await connection.exec_driver_sql("DROP SCHEMA IF EXISTS public CASCADE")
+        await connection.exec_driver_sql("CREATE SCHEMA public")
         await connection.run_sync(Base.metadata.create_all)
     await engine.dispose()
 
@@ -51,6 +52,7 @@ def database_schema() -> None:
 
 @pytest.fixture(autouse=True)
 async def clean_database() -> AsyncIterator[None]:
+    await _truncate_all()
     yield
     await _truncate_all()
 

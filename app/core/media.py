@@ -1,5 +1,6 @@
 import io
 import uuid
+from collections.abc import Sequence
 from pathlib import Path
 
 from fastapi import UploadFile
@@ -10,10 +11,14 @@ from app.core.exceptions import AppError
 
 ALLOWED_IMAGE_CONTENT_TYPES = {
     "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
     "image/png": ".png",
-    "image/webp": ".webp",
 }
-ALLOWED_IMAGE_FORMATS = {"JPEG", "PNG", "WEBP"}
+ALLOWED_IMAGE_FORMATS = {"JPEG", "PNG"}
+FORMAT_EXTENSIONS = {
+    "JPEG": ".jpg",
+    "PNG": ".png",
+}
 
 
 class InvalidImageError(AppError):
@@ -29,21 +34,11 @@ def _media_root() -> Path:
     return root
 
 
-def _extension_for_upload(content_type: str, image_format: str) -> str:
-    if content_type in ALLOWED_IMAGE_CONTENT_TYPES:
-        return ALLOWED_IMAGE_CONTENT_TYPES[content_type]
-    return {
-        "JPEG": ".jpg",
-        "PNG": ".png",
-        "WEBP": ".webp",
-    }[image_format]
-
-
-async def save_user_avatar(user_id: uuid.UUID, upload: UploadFile) -> str:
+async def _read_and_validate_image(upload: UploadFile) -> tuple[bytes, str]:
     settings = get_settings()
     content_type = (upload.content_type or "").lower()
     if content_type and content_type not in ALLOWED_IMAGE_CONTENT_TYPES:
-        raise InvalidImageError("Допустимы только изображения JPEG, PNG или WebP")
+        raise InvalidImageError("Допустимы только изображения JPG или PNG")
 
     data = await upload.read()
     if not data:
@@ -54,23 +49,51 @@ async def save_user_avatar(user_id: uuid.UUID, upload: UploadFile) -> str:
 
     try:
         with Image.open(io.BytesIO(data)) as image:
-            image.verify()
             image_format = (image.format or "").upper()
+            image.load()
     except UnidentifiedImageError as exc:
         raise InvalidImageError("Файл не является изображением") from exc
 
     if image_format not in ALLOWED_IMAGE_FORMATS:
-        raise InvalidImageError("Допустимы только изображения JPEG, PNG или WebP")
+        raise InvalidImageError("Допустимы только изображения JPG или PNG")
 
-    relative_dir = Path("avatars") / str(user_id)
+    extension = ALLOWED_IMAGE_CONTENT_TYPES.get(content_type) or FORMAT_EXTENSIONS[image_format]
+    return data, extension
+
+
+def _store_bytes(data: bytes, *, folder: str, extension: str) -> str:
+    settings = get_settings()
+    relative_dir = Path(folder)
     absolute_dir = _media_root() / relative_dir
     absolute_dir.mkdir(parents=True, exist_ok=True)
 
-    filename = f"{uuid.uuid4().hex}{_extension_for_upload(content_type, image_format)}"
-    absolute_path = absolute_dir / filename
-    absolute_path.write_bytes(data)
-
+    filename = f"{uuid.uuid4().hex}{extension}"
+    (absolute_dir / filename).write_bytes(data)
     return f"{settings.media_url.rstrip('/')}/{relative_dir.as_posix()}/{filename}"
+
+
+async def save_image(upload: UploadFile, *, folder: str) -> str:
+    data, extension = await _read_and_validate_image(upload)
+    return _store_bytes(data, folder=folder, extension=extension)
+
+
+async def save_images(uploads: Sequence[UploadFile], *, folder: str, max_count: int | None = None) -> list[str]:
+    settings = get_settings()
+    limit = max_count if max_count is not None else settings.max_images_per_item
+    files = list(uploads)
+    if not files:
+        raise InvalidImageError("Добавьте хотя бы одно изображение")
+    if len(files) > limit:
+        raise InvalidImageError(f"Можно загрузить не более {limit} фотографий")
+
+    urls: list[str] = []
+    for upload in files:
+        urls.append(await save_image(upload, folder=folder))
+    return urls
+
+
+async def save_user_avatar(user_id: uuid.UUID, upload: UploadFile) -> str:
+    return await save_image(upload, folder=f"avatars/{user_id}")
 
 
 def delete_media_file(public_url: str | None) -> None:
@@ -84,3 +107,8 @@ def delete_media_file(public_url: str | None) -> None:
     path = _media_root() / relative
     if path.is_file():
         path.unlink()
+
+
+def delete_media_files(public_urls: Sequence[str | None]) -> None:
+    for url in public_urls:
+        delete_media_file(url)

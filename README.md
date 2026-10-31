@@ -30,4 +30,3 @@ py -3.12 -m venv .venv
 После запуска:
 
 - Swagger: http://localhost:8000/docs
-
