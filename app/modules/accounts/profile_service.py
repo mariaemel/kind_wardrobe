@@ -36,5 +36,7 @@ async def delete_avatar(session: AsyncSession, user: User) -> User:
     return user
 
 
-def profile_items_saved(_user: User) -> int:
-    return 0
+async def profile_items_saved(session: AsyncSession, user: User) -> int:
+    from app.modules.chats.service import count_items_saved
+
+    return await count_items_saved(session, user.id)

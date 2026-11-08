@@ -28,7 +28,9 @@ async def register_user(payload: UserRegisterRequest, session: SessionDep) -> Au
     user, access_token, refresh_token = await service.register_user(
         session, name=payload.name, email=payload.email, password=payload.password
     )
-    return AuthResponse(user=to_profile_response(user), tokens=_tokens(access_token, refresh_token))
+    return AuthResponse(
+        user=await to_profile_response(session, user), tokens=_tokens(access_token, refresh_token)
+    )
 
 
 @router.post("/register/organization", response_model=OrganizationAuthResponse, status_code=status.HTTP_201_CREATED)
@@ -37,7 +39,7 @@ async def register_organization(payload: OrganizationRegisterRequest, session: S
         session, name=payload.name, email=payload.email, password=payload.password
     )
     return OrganizationAuthResponse(
-        user=to_profile_response(user),
+        user=await to_profile_response(session, user),
         organization=OrganizationBriefResponse.model_validate(organization),
         tokens=_tokens(access_token, refresh_token),
     )
@@ -48,13 +50,17 @@ async def login(payload: LoginRequest, session: SessionDep) -> AuthResponse:
     user, access_token, refresh_token = await service.login(
         session, email=payload.email, password=payload.password
     )
-    return AuthResponse(user=to_profile_response(user), tokens=_tokens(access_token, refresh_token))
+    return AuthResponse(
+        user=await to_profile_response(session, user), tokens=_tokens(access_token, refresh_token)
+    )
 
 
 @router.post("/refresh", response_model=AuthResponse)
 async def refresh(payload: RefreshRequest, session: SessionDep) -> AuthResponse:
     user, access_token, refresh_token = await service.refresh_tokens(session, payload.refresh_token)
-    return AuthResponse(user=to_profile_response(user), tokens=_tokens(access_token, refresh_token))
+    return AuthResponse(
+        user=await to_profile_response(session, user), tokens=_tokens(access_token, refresh_token)
+    )
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
@@ -63,5 +69,5 @@ async def logout(payload: LogoutRequest, session: SessionDep) -> None:
 
 
 @router.get("/me", response_model=ProfileResponse)
-async def me(user: CurrentUser) -> ProfileResponse:
-    return to_profile_response(user)
+async def me(user: CurrentUser, session: SessionDep) -> ProfileResponse:
+    return await to_profile_response(session, user)

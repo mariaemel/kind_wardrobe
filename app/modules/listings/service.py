@@ -336,8 +336,16 @@ async def get_listing_detail(
     listing = await _get_listing(session, listing_id)
     if listing.status is ListingStatus.PUBLISHED:
         return listing
-    if viewer is not None and viewer.id == listing.owner_id:
+    if viewer is None:
+        raise NotFoundError("Объявление не найдено")
+    if viewer.id == listing.owner_id:
         return listing
-    if listing.status in {ListingStatus.IN_TRANSFER, ListingStatus.TRANSFERRED} and viewer is not None:
-        return listing
+    if listing.status in {ListingStatus.IN_TRANSFER, ListingStatus.TRANSFERRED}:
+        from app.modules.chats.models import Chat
+
+        chat_id = await session.scalar(
+            select(Chat.id).where(Chat.listing_id == listing.id, Chat.participant_id == viewer.id)
+        )
+        if chat_id is not None:
+            return listing
     raise NotFoundError("Объявление не найдено")

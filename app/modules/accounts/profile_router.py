@@ -1,4 +1,5 @@
 from fastapi import APIRouter, File, UploadFile, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.accounts import profile_service
 from app.modules.accounts.cities import City
@@ -9,7 +10,7 @@ from app.modules.accounts.schemas import CitiesResponse, ProfileResponse, Profil
 router = APIRouter(tags=["profile"])
 
 
-def to_profile_response(user: User) -> ProfileResponse:
+async def to_profile_response(session: AsyncSession, user: User) -> ProfileResponse:
     return ProfileResponse(
         id=user.id,
         email=user.email,
@@ -17,7 +18,7 @@ def to_profile_response(user: User) -> ProfileResponse:
         city=user.city,
         about=user.about,
         avatar_url=user.avatar_url,
-        items_saved=profile_service.profile_items_saved(user),
+        items_saved=await profile_service.profile_items_saved(session, user),
         system_role=user.system_role.value,
         created_at=user.created_at,
     )
@@ -29,8 +30,8 @@ async def list_cities() -> CitiesResponse:
 
 
 @router.get("/profile/me", response_model=ProfileResponse)
-async def get_my_profile(user: CurrentUser) -> ProfileResponse:
-    return to_profile_response(user)
+async def get_my_profile(user: CurrentUser, session: SessionDep) -> ProfileResponse:
+    return await to_profile_response(session, user)
 
 
 @router.patch("/profile/me", response_model=ProfileResponse)
@@ -38,7 +39,7 @@ async def update_my_profile(
     payload: ProfileUpdateRequest, user: CurrentUser, session: SessionDep
 ) -> ProfileResponse:
     updated = await profile_service.update_profile(session, user, payload)
-    return to_profile_response(updated)
+    return await to_profile_response(session, updated)
 
 
 @router.post("/profile/me/avatar", response_model=ProfileResponse)
@@ -48,10 +49,10 @@ async def upload_my_avatar(
     file: UploadFile = File(...),
 ) -> ProfileResponse:
     updated = await profile_service.update_avatar(session, user, file)
-    return to_profile_response(updated)
+    return await to_profile_response(session, updated)
 
 
 @router.delete("/profile/me/avatar", response_model=ProfileResponse, status_code=status.HTTP_200_OK)
 async def delete_my_avatar(user: CurrentUser, session: SessionDep) -> ProfileResponse:
     updated = await profile_service.delete_avatar(session, user)
-    return to_profile_response(updated)
+    return await to_profile_response(session, updated)
