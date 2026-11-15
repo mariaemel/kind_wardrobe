@@ -15,18 +15,20 @@ class OrgPermission(StrEnum):
     EDIT_ADDRESSES = "edit_addresses"
     EDIT_ACCEPTANCE_RULES = "edit_acceptance_rules"
     MANAGE_VOLUNTEER_TASKS = "manage_volunteer_tasks"
+    REVIEW_VOLUNTEER_RESPONSES = "review_volunteer_responses"
     CONFIRM_TRANSFERS = "confirm_transfers"
     MANAGE_MEMBERS = "manage_members"
 
 
 PERMISSION_TITLES: dict[OrgPermission, str] = {
     OrgPermission.CHAT: "Переписка с пользователями от лица организации",
-    OrgPermission.EDIT_PROFILE: "Редактирование всего описания организации",
-    OrgPermission.EDIT_GENERAL_INFO: "Редактирование названия, описания и логотипа",
+    OrgPermission.EDIT_PROFILE: "Редактирование всей страницы организации",
+    OrgPermission.EDIT_GENERAL_INFO: "Редактирование основной информации",
     OrgPermission.EDIT_CONTACTS: "Редактирование контактных данных",
-    OrgPermission.EDIT_ADDRESSES: "Редактирование адресов и режима работы",
-    OrgPermission.EDIT_ACCEPTANCE_RULES: "Редактирование блоков «Принимаем» и «Не принимаем»",
-    OrgPermission.MANAGE_VOLUNTEER_TASKS: "Добавление потребностей в волонтёрах",
+    OrgPermission.EDIT_ADDRESSES: "Редактирование пунктов приёма",
+    OrgPermission.EDIT_ACCEPTANCE_RULES: "Редактирование правил приёма",
+    OrgPermission.MANAGE_VOLUNTEER_TASKS: "Создание и управление волонтёрскими задачами",
+    OrgPermission.REVIEW_VOLUNTEER_RESPONSES: "Рассмотрение откликов волонтёров",
     OrgPermission.CONFIRM_TRANSFERS: "Подтверждение получения вещей",
     OrgPermission.MANAGE_MEMBERS: "Управление сотрудниками",
 }
@@ -41,6 +43,7 @@ GRANTABLE_PERMISSIONS: frozenset[OrgPermission] = frozenset(
         OrgPermission.EDIT_ADDRESSES,
         OrgPermission.EDIT_ACCEPTANCE_RULES,
         OrgPermission.MANAGE_VOLUNTEER_TASKS,
+        OrgPermission.REVIEW_VOLUNTEER_RESPONSES,
         OrgPermission.CONFIRM_TRANSFERS,
     }
 )
@@ -74,9 +77,19 @@ def effective_permissions(role: OrgMemberRole, granted: Iterable[str]) -> frozen
 
 
 def validate_grantable(requested: Iterable[str]) -> frozenset[OrgPermission]:
+    from app.core.exceptions import AppError
+
     requested_set = set(requested)
     allowed = {permission.value for permission in GRANTABLE_PERMISSIONS}
     unknown = requested_set - allowed
     if unknown:
-        raise ValueError(f"Недопустимые права: {', '.join(sorted(unknown))}")
+        raise AppError(f"Недопустимые права: {', '.join(sorted(unknown))}")
     return frozenset(OrgPermission(value) for value in requested_set)
+
+
+def permission_labels(permissions: Iterable[str | OrgPermission]) -> list[str]:
+    labels = []
+    for item in permissions:
+        permission = item if isinstance(item, OrgPermission) else OrgPermission(item)
+        labels.append(PERMISSION_TITLES[permission])
+    return labels

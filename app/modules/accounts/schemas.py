@@ -115,6 +115,18 @@ class ProfileResponse(BaseModel):
     created_at: datetime
 
 
+class PublicProfileResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    city: str | None
+    about: str | None
+    avatar_url: str | None
+    items_saved: int = 0
+    created_at: datetime
+
+
 class UserResponse(ProfileResponse):
     pass
 

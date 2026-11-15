@@ -330,6 +330,25 @@ async def list_my_listings(
     return list(result.scalars().unique().all()), int(total or 0)
 
 
+async def list_user_published_listings(
+    session: AsyncSession,
+    owner_id: uuid.UUID,
+    *,
+    page: int = 1,
+    page_size: int = 20,
+) -> tuple[list[Listing], int]:
+    owner = await session.get(User, owner_id)
+    if owner is None or not owner.is_active:
+        raise NotFoundError("Пользователь не найден")
+    return await list_my_listings(
+        session,
+        owner,
+        status=[ListingStatus.PUBLISHED],
+        page=page,
+        page_size=page_size,
+    )
+
+
 async def get_listing_detail(
     session: AsyncSession, listing_id: uuid.UUID, viewer: User | None
 ) -> Listing:

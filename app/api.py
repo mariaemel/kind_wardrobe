@@ -2,14 +2,18 @@ from fastapi import APIRouter
 
 from app.modules.accounts.profile_router import router as profile_router
 from app.modules.accounts.router import router as auth_router
+from app.modules.accounts.users_router import router as users_router
 from app.modules.chats.router import listings_chat_router, me_chats_router
 from app.modules.listings.router import router as listings_router
+from app.modules.organizations.router import router as organizations_router
 from app.modules.system.router import router as system_router
 
 api_router = APIRouter()
 api_router.include_router(system_router)
 api_router.include_router(auth_router)
 api_router.include_router(profile_router)
+api_router.include_router(users_router)
 api_router.include_router(listings_router)
 api_router.include_router(listings_chat_router)
 api_router.include_router(me_chats_router)
+api_router.include_router(organizations_router)
