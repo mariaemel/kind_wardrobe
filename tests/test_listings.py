@@ -119,7 +119,7 @@ async def test_create_list_filter_and_owner_rights(client: AsyncClient, make_use
     assert published.json()["status"] == "Опубликовано"
 
 
-async def test_exchange_requires_wishes(client: AsyncClient, make_user, auth_header) -> None:
+async def test_exchange_and_subcategory_optional(client: AsyncClient, make_user, auth_header) -> None:
     user = await make_user(city="Нижний Тагил")
     response = await client.post(
         "/api/v1/listings",
@@ -128,14 +128,17 @@ async def test_exchange_requires_wishes(client: AsyncClient, make_user, auth_hea
             "title": "Кроссовки",
             "description": "Размер 42",
             "category": "Обувь",
-            "subcategory": "Спортивная",
             "condition": "Отличное",
             "transfer_type": "Обмен",
             "delivery_method": "Самовывоз",
         },
         files=[("photos", _png())],
     )
-    assert response.status_code == 422
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["transfer_type"] == "Обмен"
+    assert body["exchange_wishes"] is None
+    assert body["subcategory"] is None
 
 
 async def test_create_exchange_listing(client: AsyncClient, make_user, auth_header) -> None:

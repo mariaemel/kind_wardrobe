@@ -111,6 +111,8 @@ class ProfileResponse(BaseModel):
     about: str | None
     avatar_url: str | None
     items_saved: int = 0
+    items_received: int = 0
+    items_transferred: int = 0
     system_role: str | None = None
     created_at: datetime
 
@@ -124,6 +126,8 @@ class PublicProfileResponse(BaseModel):
     about: str | None
     avatar_url: str | None
     items_saved: int = 0
+    items_received: int = 0
+    items_transferred: int = 0
     created_at: datetime
 
 

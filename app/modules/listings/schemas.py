@@ -100,8 +100,6 @@ class ListingCreateRequest(BaseModel):
         category, subcategory = validate_category_pair(self.category, self.subcategory)
         self.category = category
         self.subcategory = subcategory
-        if self.transfer_type is TransferType.EXCHANGE and not self.exchange_wishes:
-            raise ValueError("Укажите пожелания по обмену")
         if self.transfer_type is TransferType.FREE:
             self.exchange_wishes = None
         return self

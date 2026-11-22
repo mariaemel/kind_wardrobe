@@ -40,3 +40,9 @@ async def profile_items_saved(session: AsyncSession, user: User) -> int:
     from app.modules.chats.service import count_items_saved
 
     return await count_items_saved(session, user.id)
+
+
+async def profile_eco_tracker(session: AsyncSession, user: User) -> dict[str, int]:
+    from app.modules.chats.service import eco_tracker_counts
+
+    return await eco_tracker_counts(session, user.id)

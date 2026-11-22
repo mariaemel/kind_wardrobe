@@ -97,7 +97,7 @@ def validate_category_pair(category: str, subcategory: str | None) -> tuple[str,
         return category, None
 
     if not subcategory or not subcategory.strip():
-        raise ValueError("Укажите подкатегорию")
+        return category, None
     subcategory = subcategory.strip()
     if subcategory not in subs:
         raise ValueError("Некорректная подкатегория для выбранной категории")

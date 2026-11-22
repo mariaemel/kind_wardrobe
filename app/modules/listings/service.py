@@ -149,12 +149,6 @@ async def update_listing(
     transfer_type = data.get("transfer_type", listing.transfer_type)
     if isinstance(transfer_type, str):
         transfer_type = TransferType(transfer_type)
-    exchange_wishes = data.get("exchange_wishes", listing.exchange_wishes)
-    if transfer_type is TransferType.EXCHANGE:
-        if "exchange_wishes" in data and not exchange_wishes:
-            raise ListingValidationError("Укажите пожелания по обмену")
-        if "transfer_type" in data and "exchange_wishes" not in data and not listing.exchange_wishes:
-            raise ListingValidationError("Укажите пожелания по обмену")
     if transfer_type is TransferType.FREE:
         data["exchange_wishes"] = None
 

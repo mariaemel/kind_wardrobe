@@ -148,6 +148,40 @@ async def test_chat_transfer_flow(client: AsyncClient, make_user, auth_header) -
     chats = await client.get("/api/v1/me/chats", headers=owner_headers)
     assert chats.json()["total"] == 1
     assert chats.json()["items"][0]["other_user"]["name"] == "Екатерина"
+    assert chats.json()["items"][0]["display_name"] == "Екатерина"
+    assert chats.json()["items"][0]["has_unread"] in {True, False}
+
+
+async def test_chat_unread_mark(client: AsyncClient, make_user, auth_header) -> None:
+    owner = await make_user(name="Владелец", city="Екатеринбург")
+    participant = await make_user(name="Участник", city="Екатеринбург")
+    owner_headers = auth_header(owner)
+    participant_headers = auth_header(participant)
+
+    listing = await _create_listing(client, owner_headers)
+    opened = await client.post(
+        f"/api/v1/listings/{listing['id']}/chat", headers=participant_headers
+    )
+    chat_id = opened.json()["id"]
+
+    await client.post(
+        f"/api/v1/me/chats/{chat_id}/messages",
+        headers=participant_headers,
+        json={"text": "Здравствуйте!"},
+    )
+
+    owner_chats = await client.get("/api/v1/me/chats", headers=owner_headers)
+    assert owner_chats.status_code == 200
+    item = owner_chats.json()["items"][0]
+    assert item["has_unread"] is True
+    assert item["unread_count"] >= 1
+    assert owner_chats.json()["unread_total"] >= 1
+
+    await client.get(f"/api/v1/me/chats/{chat_id}/messages", headers=owner_headers)
+    after_read = await client.get("/api/v1/me/chats", headers=owner_headers)
+    assert after_read.json()["items"][0]["has_unread"] is False
+    assert after_read.json()["items"][0]["unread_count"] == 0
+    assert after_read.json()["unread_total"] == 0
 
 
 async def test_cannot_chat_unpublished(client: AsyncClient, make_user, auth_header) -> None:

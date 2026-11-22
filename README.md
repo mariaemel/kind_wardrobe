@@ -2,31 +2,37 @@
 
 ## Локальный запуск
 
-### Bash
+### Windows (Git Bash)
 
 ```bash
 cp .env.example .env
-docker compose up -d db
-
-python3.12 -m venv .venv
+py -3.12 -m venv .venv
 source .venv/Scripts/activate
 pip install -r requirements-dev.txt
+
+docker compose up -d db
+docker compose exec db pg_isready -U kind_wardrobe -d kind_wardrobe
+
 alembic upgrade head
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-### PowerShell (Windows)
 
-```powershell
-Copy-Item .env.example .env
+### macOS / Linux
+
+```bash
+cp .env.example .env
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+
 docker compose up -d db
+docker compose exec db pg_isready -U kind_wardrobe -d kind_wardrobe
 
-py -3.12 -m venv .venv
-.\.venv\Scripts\pip install -r requirements-dev.txt
-.\.venv\Scripts\alembic upgrade head
-.\.venv\Scripts\uvicorn app.main:app --reload
+alembic upgrade head
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 После запуска:
 
-- Swagger: http://localhost:8000/docs
+- Swagger: http://127.0.0.1:8000/docs

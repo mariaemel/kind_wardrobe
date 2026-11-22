@@ -5,7 +5,7 @@ from fastapi import APIRouter, Query
 from app.core.exceptions import NotFoundError
 from app.modules.accounts.dependencies import SessionDep
 from app.modules.accounts.models import User
-from app.modules.accounts.profile_service import profile_items_saved
+from app.modules.accounts.profile_service import profile_eco_tracker
 from app.modules.accounts.schemas import PublicProfileResponse
 from app.modules.listings import service as listings_service
 from app.modules.listings.schemas import ListingCardResponse, ListingListResponse
@@ -18,13 +18,16 @@ async def get_public_profile(user_id: uuid.UUID, session: SessionDep) -> PublicP
     user = await session.get(User, user_id)
     if user is None or not user.is_active:
         raise NotFoundError("Пользователь не найден")
+    eco = await profile_eco_tracker(session, user)
     return PublicProfileResponse(
         id=user.id,
         name=user.name,
         city=user.city,
         about=user.about,
         avatar_url=user.avatar_url,
-        items_saved=await profile_items_saved(session, user),
+        items_saved=eco["items_saved"],
+        items_received=eco["items_received"],
+        items_transferred=eco["items_transferred"],
         created_at=user.created_at,
     )
 

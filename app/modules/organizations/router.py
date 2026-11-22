@@ -5,6 +5,13 @@ from fastapi import APIRouter, File, Query, UploadFile
 
 from app.modules.accounts.dependencies import CurrentUser, OptionalUser, SessionDep
 from app.modules.organizations import service
+from app.modules.chats import service as chats_service
+from app.modules.chats.schemas import (
+    ChatResponse,
+    OrganizationTransferCreateRequest,
+    OrganizationTransfersResponse,
+    SuitableListingsResponse,
+)
 from app.modules.organizations.schemas import (
     AcceptanceRulesUpdateRequest,
     AddressesReplaceRequest,
@@ -297,3 +304,52 @@ async def accept_invitation(
     user: CurrentUser,
 ) -> OrganizationDetailResponse:
     return OrganizationDetailResponse(**await service.accept_invitation(session, token, user))
+
+
+@router.get(
+    "/organizations/{organization_id}/suitable-listings",
+    response_model=SuitableListingsResponse,
+)
+async def suitable_listings(
+    organization_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+) -> SuitableListingsResponse:
+    items = await chats_service.list_suitable_listings(session, user, organization_id)
+    return SuitableListingsResponse(items=items, total=len(items))
+
+
+@router.post(
+    "/organizations/{organization_id}/transfers",
+    response_model=ChatResponse,
+    status_code=201,
+)
+async def create_organization_transfer(
+    organization_id: uuid.UUID,
+    payload: OrganizationTransferCreateRequest,
+    session: SessionDep,
+    user: CurrentUser,
+) -> ChatResponse:
+    from app.modules.chats.router import build_chat_response
+
+    detail = await chats_service.create_organization_transfer(
+        session,
+        user,
+        organization_id,
+        listing_id=payload.listing_id,
+        address_id=payload.address_id,
+    )
+    return build_chat_response(detail)
+
+
+@router.get(
+    "/organizations/{organization_id}/transfers",
+    response_model=OrganizationTransfersResponse,
+)
+async def list_organization_transfers(
+    organization_id: uuid.UUID,
+    session: SessionDep,
+    user: CurrentUser,
+) -> OrganizationTransfersResponse:
+    items = await chats_service.list_organization_transfers(session, user, organization_id)
+    return OrganizationTransfersResponse(items=items, total=len(items))

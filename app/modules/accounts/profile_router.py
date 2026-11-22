@@ -11,6 +11,7 @@ router = APIRouter(tags=["profile"])
 
 
 async def to_profile_response(session: AsyncSession, user: User) -> ProfileResponse:
+    eco = await profile_service.profile_eco_tracker(session, user)
     return ProfileResponse(
         id=user.id,
         email=user.email,
@@ -18,7 +19,9 @@ async def to_profile_response(session: AsyncSession, user: User) -> ProfileRespo
         city=user.city,
         about=user.about,
         avatar_url=user.avatar_url,
-        items_saved=await profile_service.profile_items_saved(session, user),
+        items_saved=eco["items_saved"],
+        items_received=eco["items_received"],
+        items_transferred=eco["items_transferred"],
         system_role=user.system_role.value,
         created_at=user.created_at,
     )
