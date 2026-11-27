@@ -87,6 +87,9 @@ async def register_user(session: AsyncSession, *, name: str, email: str, passwor
     )
     session.add(user)
     await session.flush()
+    from app.modules.organizations.service import claim_pending_invitation
+
+    await claim_pending_invitation(session, user)
     access_token, refresh_token = await _issue_tokens(session, user)
     await session.refresh(user)
     return user, access_token, refresh_token

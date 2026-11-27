@@ -157,6 +157,13 @@ async def test_user_to_organization_transfer_flow(
     history_mid = await client.get("/api/v1/me/transfer-history", headers=donor_headers)
     assert history_mid.json()["total"] == 0
 
+    staff_message = await client.post(
+        f"/api/v1/me/chats/{chat_id}/messages",
+        headers=staff_headers,
+        json={"text": "Можем принять завтра."},
+    )
+    assert staff_message.status_code == 201, staff_message.text
+
     staff_denied = await client.post(
         f"/api/v1/me/chats/{chat_id}/transfer/confirm",
         headers=staff_headers,

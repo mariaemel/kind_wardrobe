@@ -1,5 +1,6 @@
 import pytest
 
+from app.core.exceptions import AppError
 from app.modules.organizations.permissions import (
     OrgMemberRole,
     OrgPermission,
@@ -42,7 +43,7 @@ def test_employee_cannot_get_member_management_from_stored_value() -> None:
 
 def test_validate_grantable_rejects_unknown_and_non_grantable() -> None:
     assert validate_grantable(["confirm_transfers"]) == {OrgPermission.CONFIRM_TRANSFERS}
-    with pytest.raises(ValueError):
+    with pytest.raises(AppError):
         validate_grantable(["manage_members"])
-    with pytest.raises(ValueError):
+    with pytest.raises(AppError):
         validate_grantable(["fly_to_the_moon"])

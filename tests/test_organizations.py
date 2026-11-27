@@ -352,9 +352,61 @@ async def test_invite_accept_update_and_remove_member(
     )
     assert all(item["email"] != invitee.email for item in after.json()["items"])
 
+    still_exists = await client.get("/api/v1/auth/me", headers=auth_header(invitee))
+    assert still_exists.status_code == 200
+    assert still_exists.json()["email"] == invitee.email
+
     recreate = await client.post(
         "/api/v1/organizations",
         headers=auth_header(invitee),
         json={"name": "Своя организация", "email": "own.org@example.com"},
     )
     assert recreate.status_code == 201
+
+
+async def test_register_claims_pending_invitation(
+    client: AsyncClient, session, make_user, auth_header
+) -> None:
+    owner = await make_user(city="Екатеринбург", email="invite.reg.owner@example.com")
+    org = await _make_org(session, owner)
+    email = "new.user@mail.ru"
+    invite = await client.post(
+        f"/api/v1/organizations/{org.id}/invitations",
+        headers=auth_header(owner),
+        json={
+            "email": email,
+            "permissions": [OrgPermission.CONFIRM_TRANSFERS.value],
+        },
+    )
+    assert invite.status_code == 201
+
+    registered = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "name": "Новый сотрудник",
+            "email": email,
+            "password": "Password123",
+            "personal_data_consent": True,
+        },
+    )
+    assert registered.status_code == 201, registered.text
+    token = registered.json()["tokens"]["access_token"]
+    mine = await client.get(
+        "/api/v1/me/organizations",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert mine.status_code == 200
+    assert len(mine.json()) == 1
+    membership = mine.json()[0]
+    assert membership["id"] == str(org.id)
+    assert membership["role"] == "employee"
+    assert OrgPermission.CHAT.value in membership["permissions"]
+    assert OrgPermission.CONFIRM_TRANSFERS.value in membership["permissions"]
+    assert OrgPermission.MANAGE_MEMBERS.value not in membership["permissions"]
+
+    pending = await client.get(
+        f"/api/v1/organizations/{org.id}/invitations",
+        headers=auth_header(owner),
+    )
+    assert pending.status_code == 200
+    assert pending.json()["items"] == []

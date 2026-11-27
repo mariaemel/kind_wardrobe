@@ -646,6 +646,33 @@ async def revoke_invitation(
     await session.commit()
 
 
+def _grant_invitation(invitation: OrganizationInvitation, user: User) -> OrganizationMember:
+    invitation.status = InvitationStatus.ACCEPTED
+    invitation.accepted_at = datetime.now(UTC)
+    return OrganizationMember(
+        organization_id=invitation.organization_id,
+        user_id=user.id,
+        role=OrgMemberRole.EMPLOYEE,
+        permissions=list(invitation.permissions),
+    )
+
+
+async def claim_pending_invitation(session: AsyncSession, user: User) -> None:
+    invitation = await session.scalar(
+        select(OrganizationInvitation)
+        .where(
+            OrganizationInvitation.email == user.email.lower(),
+            OrganizationInvitation.status == InvitationStatus.PENDING,
+        )
+        .order_by(OrganizationInvitation.created_at.desc())
+        .limit(1)
+    )
+    if invitation is None or await _user_membership(session, user.id) is not None:
+        return
+    session.add(_grant_invitation(invitation, user))
+    session.add(invitation)
+
+
 async def accept_invitation(session: AsyncSession, token: str, user: User) -> dict:
     result = await session.execute(
         select(OrganizationInvitation).where(
@@ -659,16 +686,7 @@ async def accept_invitation(session: AsyncSession, token: str, user: User) -> di
     if invitation.email.lower() != user.email.lower():
         raise PermissionDeniedError("Приглашение предназначено для другого email")
     await _assert_can_join_organization(session, user)
-    session.add(
-        OrganizationMember(
-            organization_id=invitation.organization_id,
-            user_id=user.id,
-            role=OrgMemberRole.EMPLOYEE,
-            permissions=list(invitation.permissions),
-        )
-    )
-    invitation.status = InvitationStatus.ACCEPTED
-    invitation.accepted_at = datetime.now(UTC)
+    session.add(_grant_invitation(invitation, user))
     session.add(invitation)
     await session.commit()
     return await get_public_organization(session, invitation.organization_id, user)
